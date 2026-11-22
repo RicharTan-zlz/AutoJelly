@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="jellyfin-agent">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/jellyfin-agent.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

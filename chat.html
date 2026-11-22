@@ -1,0 +1,153 @@
+<div data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <style>
+            #jfagent-root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #e8eaed; }
+            #jfagent-root h2 { margin-top: 0; }
+            #jfagent-root .section { background: #1c2128; border: 1px solid #2a313a; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+            #jfagent-root .section h3 { margin: 0 0 12px; font-size: 14px; color: #9aa4b2; text-transform: uppercase; letter-spacing: .5px; }
+            #jfagent-root label { display: block; font-size: 12px; color: #9aa4b2; margin: 8px 0 4px; }
+            #jfagent-root input { width: 100%; box-sizing: border-box; background: #12171d; border: 1px solid #2a313a; border-radius: 6px; color: #e8eaed; padding: 8px 10px; font-size: 13px; }
+            #jfagent-root button { background: #00a4dc; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+            #jfagent-root #jfagent-log { min-height: 180px; background: #12171d; border: 1px solid #2a313a; border-radius: 6px; padding: 12px; font-size: 13px; white-space: pre-wrap; }
+            #jfagent-root .row { display: flex; gap: 8px; margin-top: 12px; }
+            #jfagent-root .row input { flex: 1; }
+            #jfagent-root .hint { font-size: 11px; color: #6b7684; margin-top: 8px; }
+        </style>
+
+        <div id="jfagent-root">
+            <h2>AI 助手</h2>
+
+            <div class="section">
+                <h3>配置</h3>
+                <label>DeepSeek API Key</label>
+                <input id="jfagent-deepseekKey" type="password" placeholder="sk-..." />
+                <label>DeepSeek Base URL</label>
+                <input id="jfagent-deepseekBase" value="https://api.deepseek.com" />
+                <label>DeepSeek 模型</label>
+                <input id="jfagent-deepseekModel" value="deepseek-chat" />
+                <label>Sidecar 地址（Python agent 服务）</label>
+                <input id="jfagent-sidecarUrl" value="http://127.0.0.1:8787" />
+                <label>Jellyfin API Key（给 Agent 控制媒体用，Dashboard → API Keys 生成）</label>
+                <input id="jfagent-jellyfinApiKey" type="password" placeholder="可选，需要控制播放时填写" />
+                <label>Jellyfin 访问令牌（本页面调用插件接口的鉴权，一般自动填充）</label>
+                <input id="jfagent-jellyfinToken" type="password" placeholder="自动从本地读取，失败则手动粘贴" />
+                <div class="row" style="justify-content:flex-end;">
+                    <button onclick="saveConfig()">保存配置</button>
+                </div>
+                <div class="hint" id="jfagent-status"></div>
+            </div>
+
+            <div class="section">
+                <h3>对话</h3>
+                <div id="jfagent-log">（输入问题，例如「搜一下诺兰的电影」）</div>
+                <div class="row">
+                    <input id="jfagent-msg" placeholder="输入消息…" onkeydown="if(event.key==='Enter')send()" />
+                    <button onclick="send()">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--<script type="text/javascript">
+        function byId(id) { return document.getElementById(id); }
+
+        function getToken() {
+            // 1. 优先用 jellyfin-web 当前的实时令牌（最可靠，不会失效）
+            try {
+                if (window.ApiClient && window.ApiClient.accessToken) {
+                    var live = window.ApiClient.accessToken();
+                    if (live) return live;
+                }
+            } catch (e) {}
+            // 2. 手动输入的令牌（兜底/覆盖）
+            var manual = byId('jfagent-jellyfinToken').value.trim();
+            if (manual) return manual;
+            // 3. localStorage 兜底
+            try {
+                var raw = localStorage.getItem('jellyfin_credentials');
+                if (raw) {
+                    var c = JSON.parse(raw);
+                    var servers = c.Servers || [];
+                    for (var i = 0; i < servers.length; i++) {
+                        if (servers[i].AccessToken) return servers[i].AccessToken;
+                    }
+                }
+            } catch (e) {}
+            return '';
+        }
+
+        function headers() {
+            var token = getToken();
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': 'MediaBrowser Token="' + token + '"',
+                'X-Emby-Token': token
+            };
+        }
+
+        function loadConfig() {
+            byId('jfagent-jellyfinToken').value = getToken();
+            fetch('/JellyfinAgent/config', { headers: headers() })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('加载配置失败（HTTP ' + r.status + '），请确认已登录且有管理员权限');
+                    return r.json();
+                })
+                .then(function (c) {
+                    byId('jfagent-deepseekKey').value = c.deepSeekApiKey || '';
+                    byId('jfagent-deepseekBase').value = c.deepSeekBaseUrl || 'https://api.deepseek.com';
+                    byId('jfagent-deepseekModel').value = c.deepSeekModel || 'deepseek-chat';
+                    byId('jfagent-sidecarUrl').value = c.sidecarUrl || 'http://127.0.0.1:8787';
+                    byId('jfagent-jellyfinApiKey').value = c.jellyfinApiKey || '';
+                    byId('jfagent-status').textContent = '已加载服务器配置';
+                })
+                .catch(function (e) {
+                    byId('jfagent-status').textContent = e.message;
+                });
+        }
+
+        function saveConfig() {
+            var payload = {
+                deepSeekApiKey: byId('jfagent-deepseekKey').value.trim(),
+                deepSeekBaseUrl: byId('jfagent-deepseekBase').value.trim(),
+                deepSeekModel: byId('jfagent-deepseekModel').value.trim(),
+                sidecarUrl: byId('jfagent-sidecarUrl').value.trim(),
+                jellyfinApiKey: byId('jfagent-jellyfinApiKey').value.trim()
+            };
+            fetch('/JellyfinAgent/config', { method: 'POST', headers: headers(), body: JSON.stringify(payload) })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('保存失败（HTTP ' + r.status + '）');
+                    byId('jfagent-status').textContent = '已保存 ✓';
+                })
+                .catch(function (e) {
+                    byId('jfagent-status').textContent = e.message;
+                });
+        }
+
+        var chatHistory = [];
+
+        function send() {
+            var m = byId('jfagent-msg').value.trim();
+            if (!m) return;
+            byId('jfagent-msg').value = '';
+            byId('jfagent-log').textContent += '\n你：' + m + '\nAI：思考中…';
+            var historyToSend = chatHistory.slice();
+            chatHistory.push({ role: 'user', content: m });
+            fetch('/JellyfinAgent/chat', { method: 'POST', headers: headers(), body: JSON.stringify({ message: m, history: historyToSend }) })
+                .then(function (r) {
+                    if (!r.ok) return r.text().then(function (t) { throw new Error('HTTP ' + r.status + ' ' + t); });
+                    return r.json();
+                })
+                .then(function (j) {
+                    var reply = j.reply || '(无回复)';
+                    chatHistory.push({ role: 'assistant', content: reply });
+                    byId('jfagent-log').textContent = byId('jfagent-log').textContent.replace('思考中…', '') + reply;
+                })
+                .catch(function (e) {
+                    chatHistory.pop();
+                    byId('jfagent-log').textContent = byId('jfagent-log').textContent.replace('思考中…', '') + '\n错误：' + e.message;
+                });
+        }
+
+        loadConfig();
+    </script>-->
+</div>

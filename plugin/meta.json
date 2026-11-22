@@ -1,0 +1,11 @@
+{
+  "category": "General",
+  "description": "AI agent assistant embedded in the Jellyfin web UI (DeepSeek + tools).",
+  "guid": "5f9c8a1e-3b2d-4c6f-9a7e-1d2b3c4d5e6f",
+  "name": "Jellyfin Agent",
+  "overview": "AI assistant for Jellyfin",
+  "owner": "me",
+  "targetAbi": "12.4.0.0",
+  "version": "1.0.0.0",
+  "assemblies": ["Jellyfin.Plugin.Agent.dll"]
+}
